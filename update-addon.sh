@@ -10,4 +10,4 @@ sh ./create-gma.sh
 
 echo "Uploading to the Workshop"
 str="$*"
-"C:/Program Files (x86)/Steam/steamapps/common/GarrysMod/bin/gmpublish.exe" update -addon "./temp.gma" -id "893205646" -changes "$str"
+"P:\Games\Steam\steamapps\common\GarrysMod\bin\gmpublish.exe" update -addon "./temp.gma" -id "893205646" -changes "$str"
