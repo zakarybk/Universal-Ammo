@@ -1,5 +1,5 @@
 UniversalAmmo = UniversalAmmo or {}
-
+UNIVERSAL_AMMO_COOLDOWN = 0.33
 --[[
 	Helper functions
 
@@ -7,6 +7,10 @@ UniversalAmmo = UniversalAmmo or {}
 	only ever run to validate config changes,
 	so it's not worth the hassle.
 ]]--
+
+UniversalAmmo.CanEditConfig = function(ply)
+	return IsValid(ply) and ply:IsSuperAdmin() or game.SinglePlayer()
+end
 
 UniversalAmmo.GetAmmoClasses = function()
 	return table.Copy(game.GetAmmoTypes())
@@ -164,7 +168,7 @@ end
 -- + same for secondary - skip the whole weapon : ammo type thing?
 
 UniversalAmmo.GetBullets = function(ammoClass)
-	local ammoData = UniversalAmmo.Config['ammo']
+	local ammoData = UniversalAmmo.Config()['ammo']
 
 	if ammoData[ammoClass] then
 		return ammoData[ammoClass]

@@ -7,6 +7,7 @@ function ENT:Initialize()
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
+    self:SetColor(Color(255,110,20))
     local phys = self:GetPhysicsObject()
     phys:Wake()
 end
@@ -24,7 +25,7 @@ function ENT:Use(activator, caller)
 		local swep = caller:GetActiveWeapon()
 
 		if swep and IsValid(swep) then
-			local ammoType = swep:GetPrimaryAmmoType()
+			local ammoType = swep:GetSecondaryAmmoType()
 
 			if ammoType and ammoType ~= -1 then
 				local ammo = game.GetAmmoName(ammoType)
@@ -33,7 +34,7 @@ function ENT:Use(activator, caller)
 				caller:GiveAmmo(amount, ammo)
 				self:Remove()
 			else
-				caller:ChatPrint("Please equip the weapon you wish to refill!")
+				caller:ChatPrint("Held weapon doesn't take secondary ammo!")
 				caller.UniversalAmmoCooldown = CurTime()
 			end
 		end

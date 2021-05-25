@@ -13,17 +13,11 @@ local config = {
 	-- ['swep.secondary'] = {},
 	-- ['darkrp'] = {} -- TODO: Add entity to F4 menu
 }
-UniversalAmmo.Config = function() return table.Copy(config) end
-
-PrintTable(config)
+UniversalAmmo.Config = function() return config end
 
 local DIRECTORY = 'universal_ammo'
 local FILE = 'config.txt'
 local MAX_DOWNLOAD_REQUESTS = 5
-
-local function canEditConfig(ply)
-	return IsValid(ply) and ply:IsSuperAdmin()
-end
 
 local function configFilePath()
 	return DIRECTORY .. '/' .. FILE
@@ -78,15 +72,12 @@ local function loadConfig()
 			)
 		end
 
-		PrintTable(config)
-
 		hasLoadedConfig = true
 		net.Start("UniversalAmmo_DownloadConfig")
 			net.WriteTable(config)
 		net.Send(player.GetAll())
 	end)
 end
-loadConfig() -- load on refresh
 hook.Add("InitPostEntity", "UniversalAmmo_LoadConfig", loadConfig)
 
 -- Where configName = key in config{},
@@ -121,55 +112,23 @@ local function setBulletCountForAmmo(bulletCount, ammoClass)
 	end
 end
 
--- local function setPrimaryAmmoClassForSWEP(ammoClass, swepClass)
--- 	if UniversalAmmo.IsValidSWEPClass(swepClass)
--- 		and UniversalAmmo.IsValidAmmoClass(ammoClass) then
-
--- 		updateConfigRow('swep.primary', swepClass, ammoClass)
--- 	end
--- end
-
--- local function setSecondaryAmmoClassForSWEP(ammoClass, swepClass)
--- 	if UniversalAmmo.IsValidSWEPClass(swepClass)
--- 		and UniversalAmmo.IsValidAmmoClass(ammoClass) then
-
--- 		updateConfigRow('swep.secondary', swepClass, ammoClass)
--- 	end
--- end
-
 net.Receive("UniversalAmmo_SetAmmoCount", function(len, ply)
 	if not hasLoadedConfig then return end
-	if canEditConfig(ply) then
+
+	if UniversalAmmo.CanEditConfig(ply) then
 		local ammoClass = net.ReadString()
 		local bulletCount = tonumber(net.ReadString())
 
 		setBulletCountForAmmo(tonumber(bulletCount), ammoClass)
+	else
+		ply:ChatPrint("Universal Ammo: Permission denied")
 	end
 end)
-
--- Skipping due to GetPrimaryAmmoType, GetSecondaryAmmoType
--- net.Receive("UniversalAmmo_SetPrimaryAmmoForSWEP", function(len, ply)
--- 	if canEditConfig(ply) then
--- 		local ammoClass = net.ReadString()
--- 		local swepClass = net.ReadString()
-
--- 		setPrimaryAmmoClassForSWEP(ammoClass, swepClass)
--- 	end
--- end)
-
--- net.Receive("UniversalAmmo_SetSecondaryAmmoForSWEP", function(len, ply)
--- 	if canEditConfig(ply) then
--- 		local ammoClass = net.ReadString()
--- 		local swepClass = net.ReadString()
-
--- 		setSecondaryAmmoClassForSWEP(ammoClass, swepClass)
--- 	end
--- end)
 
 -- Make sure the player is always able to download the ammo even with connection drops
 net.Receive("UniversalAmmo_DownloadConfig", function(len, ply)
 	if not hasLoadedConfig then return end
-	PrintTable(config)
+
 	if not ply.UniversalAmmoDownloads then
 		ply.UniversalAmmoDownloads = 1
 		net.Start("UniversalAmmo_DownloadConfig")
@@ -181,4 +140,42 @@ net.Receive("UniversalAmmo_DownloadConfig", function(len, ply)
 			net.WriteTable(config)
 		net.Send(ply)
 	end
+end)
+
+concommand.Add("test_me", function(ply)
+	local swep = ply:GetActiveWeapon()
+
+	local ammo = game.GetAmmoName(swep:GetPrimaryAmmoType())
+	local original = swep.TakePrimaryAmmo
+
+	-- swep.TakePrimaryAmmo = function() return end
+
+	-- swep.TakePrimaryAmmo = function(self, amount)
+	-- 	print(self, amount)
+	-- 	ply:GiveAmmo(amount, ammo)
+	-- 	return original(self, amount)
+	-- end
+
+	local originalTake = swep.TakePrimaryAmmo
+	swep.IsUniversalAmmoInfinite = true
+
+	swep.TakePrimaryAmmo = function(self, amount)
+		swep.UniversalAmmoGiveBack = swep.UniversalAmmoGiveBack and swep.UniversalAmmoGiveBack + amount or 0
+		return originalTake(self, amount)
+	end
+
+	local originalReload = swep.Reload
+
+	swep.Reload = function(...)
+		local usedAmmo = swep.UniversalAmmoGiveBack
+		if usedAmmo then
+			ply:GiveAmmo(usedAmmo, ammo)
+			swep.UniversalAmmoGiveBack = 0
+		end
+		return originalReload(...)
+	end
+
+
+
+	print("hi")
 end)
