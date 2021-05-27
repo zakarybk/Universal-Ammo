@@ -7,7 +7,7 @@ UniversalAmmo.Menu = {}
 local config = {}
 UniversalAmmo.Config = function() return config end
 
-local function updateConfig(configName, className, value)
+local function updateServerConfig(configName, className, value)
 	local networkMapping = {
 		['ammo'] = "UniversalAmmo_SetAmmoCount",
 		['darkrp'] = "UniversalAmmo_SetDarkRPAmmo"
@@ -19,14 +19,12 @@ local function updateConfig(configName, className, value)
 		value = util.TableToJSON(value)
 	end
 
-	print("Updating config")
-
 	net.Start(networkMapping[configName])
 		net.WriteString(className)
 		net.WriteString(tostring(value))
 	net.SendToServer()
 end
-UniversalAmmo.UpdateServerConfig = updateConfig
+UniversalAmmo.UpdateServerConfig = updateServerConfig
 
 UniversalAmmo.Menu.IsOpen = function()
 	return UniversalAmmo.Menu.Frame ~= nil
@@ -42,7 +40,6 @@ net.Receive("UniversalAmmo_DownloadConfig", function()
 	if table.Count(config)==0 then
 		config = net.ReadTable()
 		hook.Run("UniversalAmmo_DownloadedConfig", config)
-		LocalPlayer():ChatPrint("Loaded config")
 	end
 end)
 timer.Create("UniversalAmmo_DownloadConfig", 1, 0, function()
@@ -64,6 +61,10 @@ UniversalAmmo.UpdateLocalConfig = function(configName, className, value)
 		value = util.JSONToTable(value)
 	end
 
+	if configName == 'ammo' then
+		value = tonumber(value)
+	end
+
 	config[configName] = config[configName] or {}
 	config[configName][className] = value
 
@@ -78,7 +79,9 @@ UniversalAmmo.Menu.UpdateConfig = function(configName, className, value)
 	UniversalAmmo.UpdateLocalConfig(configName, className, value)
 	-- Can only update an open menu
 	if UniversalAmmo.Menu.IsOpen() then
-		UniversalAmmo.Menu.Panel[configName].UpdateRow(className, value)
+		if UniversalAmmo.Menu.Panel and UniversalAmmo.Menu.Panel[configName] then
+			UniversalAmmo.Menu.Panel[configName].UpdateRow(className, value)
+		end
 	end
 end
 net.Receive("UniversalAmmo_OnConfigChanged", function()
@@ -112,7 +115,12 @@ local function createRow(className, value, possibleValues)
 	valueEntry:SetText(value)
 	valueEntry:SetNumeric(true)
 	valueEntry.OnEnter = function(self)
-		updateConfig('ammo', classLabel:GetText(), self:GetValue())
+		updateServerConfig('ammo', className, self:GetValue())
+	end
+	valueEntry.OnLoseFocus = function( self )
+		if tostring(self:GetValue()) ~= config['ammo'][className] then
+			updateServerConfig('ammo', className, self:GetValue())
+		end
 	end
 	row.valueEntry = valueEntry
 
@@ -255,8 +263,27 @@ UniversalAmmo.Menu.Generate = function(panel)
 	panel.PopulateRows(config['ammo'])
 end
 
-hook.Add("PopulateToolMenu", "CustomMenuSettings2222", function()
+hook.Add("PopulateToolMenu", "UniversalAmmo_Ammo", function()
 	spawnmenu.AddToolMenuOption("Utilities", "Universal_Ammo", "Ammo", "Ammo", "", "", function(panel)
 		UniversalAmmo.Menu.Generate(panel)
+	end)
+end)
+
+hook.Add("PopulateToolMenu", "UniversalAmmo_Admin", function()
+	spawnmenu.AddToolMenuOption("Utilities", "Universal_Ammo", "Admin", "Admin", "", "", function(panel)
+		panel:ClearControls()
+
+		panel:ControlHelp("Make a file lock file in: garrysmod/data/universal_ammo/lock.txt to stop admins from editing settings!")
+		panel:Help("The below button resets all the config for Universal ammo! (may require restart)")
+
+		local clearDB = vgui.Create("DButton")
+		clearDB:SetText("Reset to defaults")
+		clearDB:Dock(FILL)
+		clearDB.DoClick = function()
+			net.Start("UniversalAmmo_ResetToDefaults")
+			net.SendToServer()
+		end
+
+		panel:AddItem(clearDB)
 	end)
 end)

@@ -19,6 +19,7 @@ if SERVER then
 			elseif ent.ammoType == "universal_ammo_infinite" then
 				UniversalAmmo.Infinite.Initialize(ent)
 				ent.Use = UniversalAmmo.Infinite.Use
+				ent.StartTouch = function() end -- cannot stack infinite ammo
 			end
 
 			net.Start("UniversalAmmo_MarkEntAsUniversalAmmo")
@@ -35,9 +36,8 @@ if SERVER then
 
 		-- Edit ammo in buy menu
 		net.Receive("UniversalAmmo_SetDarkRPAmmo", function(len, ply)
-			print("UniversalAmmo_SetDarkRPAmmo")
 			if UniversalAmmo.CanEditConfig(ply) then
-				local uniAmmos = UniversalAmmo.UniversalAmmoClasses()
+				local uniAmmos = universalAmmoTypes
 
 				local ammoClass = net.ReadString()
 				local tbl = util.JSONToTable(net.ReadString())
@@ -83,7 +83,7 @@ if CLIENT or SERVER then
 						    price = tonumber(ammoData.price),
 						    amountGiven = 1 -- allow universal ammo to stack
 						})
-						print("Creating " .. className)
+						print("Universal Ammo DarkRP: Creating " .. className .. " ammo")
 					end
 				end
 				timer.Remove("UniversalAmmo_LoadDarkRP")
@@ -115,7 +115,6 @@ if CLIENT or SERVER then
 					-- enable / disable
 					local checkbox = panel:CheckBox("Add " .. className .. " to the buy menu.")
 					checkbox.OnChange = function(self, bVal)
-						print("change")
 						local config = UniversalAmmo.Config()['darkrp'][className]
 						updateDarkRPAmmo(className, config.printName, config.price, bVal)
 					end
@@ -128,6 +127,12 @@ if CLIENT or SERVER then
 						local config = UniversalAmmo.Config()['darkrp'][className]
 						updateDarkRPAmmo(className, self:GetValue(), config.price, config.enabled)
 					end
+					printName.OnLoseFocus = function( self )
+						if tostring(self:GetValue()) ~= config['darkrp'][className] then
+							local config = UniversalAmmo.Config()['darkrp'][className]
+							updateDarkRPAmmo(className, config.printName, self:GetValue(), config.enabled)
+						end
+					end
 
 					-- price
 					local price = panel:TextEntry("Price: ")
@@ -136,6 +141,12 @@ if CLIENT or SERVER then
 					price.OnEnter = function(self)
 						local config = UniversalAmmo.Config()['darkrp'][className]
 						updateDarkRPAmmo(className, config.printName, self:GetValue(), config.enabled)
+					end
+					price.OnLoseFocus = function( self )
+						if tostring(self:GetValue()) ~= config['darkrp'][className] then
+							local config = UniversalAmmo.Config()['darkrp'][className]
+							updateDarkRPAmmo(className, config.printName, self:GetValue(), config.enabled)
+						end
 					end
 				end
 			end)

@@ -165,15 +165,11 @@ UniversalAmmo.GuessGoodAmmoCount = function()
 
 	for ammo, clipCounts in pairs(ammoClipSizes) do
 		adjustedAmmoAverages[ammo] =
-			math.Round(math.Clamp(average(clipCounts) * 2, 1, 80))
+			math.max(1, math.Round(math.Clamp(average(clipCounts) * 2, 1, 80)))
 	end
 
 	return adjustedAmmoAverages
 end
-
--- SO um, the wiki has
--- GetPrimaryAmmoType, https://wiki.facepunch.com/gmod/Weapon:GetPrimaryAmmoType
--- + same for secondary - skip the whole weapon : ammo type thing?
 
 UniversalAmmo.GetBullets = function(ammoClass)
 	local ammoData = UniversalAmmo.Config()['ammo']
@@ -234,11 +230,15 @@ if SERVER then
 				local ammoType = swep:GetPrimaryAmmoType()
 
 				if ammoType and ammoType ~= -1 then
+					-- Prevent pickup if not allowed for swep
 					local ammo = game.GetAmmoName(ammoType)
-					local amount = UniversalAmmo.GetBullets(ammo) * (ammo.amountGiven or 1) -- allow ammo stacking
-
-					caller:GiveAmmo(amount, ammo)
-					self:Remove()
+					local amount = UniversalAmmo.GetBullets(ammo) * (self.amountGiven or 1) -- allow ammo stacking
+					if amount == 0 then
+						caller:ChatPrint("Sorry, this weapon cannot use universal ammo!")
+					else
+						caller:GiveAmmo(amount, ammo)
+						self:Remove()
+					end
 				else
 					caller:ChatPrint("Please equip the weapon you wish to refill!")
 					caller.UniversalAmmoCooldown = CurTime()
@@ -273,11 +273,15 @@ if SERVER then
 				local ammoType = swep:GetSecondaryAmmoType()
 
 				if ammoType and ammoType ~= -1 then
+					-- Prevent pickup if not allowed for swep
 					local ammo = game.GetAmmoName(ammoType)
-					local amount = UniversalAmmo.GetBullets(ammo) * (ammo.amountGiven or 1) -- allow ammo stacking
-
-					caller:GiveAmmo(amount, ammo)
-					self:Remove()
+					local amount = UniversalAmmo.GetBullets(ammo) * (self.amountGiven or 1) -- allow ammo stacking
+					if amount == 0 then
+						caller:ChatPrint("Sorry, this weapon cannot use universal ammo!")
+					else
+						caller:GiveAmmo(amount, ammo)
+						self:Remove()
+					end
 				else
 					caller:ChatPrint("Held weapon doesn't take secondary ammo!")
 					caller.UniversalAmmoCooldown = CurTime()
@@ -315,7 +319,7 @@ if SERVER then
 
 		local originalTake = swep.TakePrimaryAmmo
 		swep.TakePrimaryAmmo = function(self, amount, ...)
-			swep.UniversalAmmoGiveBack = swep.UniversalAmmoGiveBack and swep.UniversalAmmoGiveBack + amount or 0
+			swep.UniversalAmmoGiveBack = swep.UniversalAmmoGiveBack and swep.UniversalAmmoGiveBack + amount or 1
 			return originalTake(self, amount, ...)
 		end
 
@@ -343,6 +347,14 @@ if SERVER then
 				local ammoType = swep:GetPrimaryAmmoType()
 
 				if ammoType and ammoType ~= -1 then
+					-- Prevent pickup if not allowed for swep
+					local ammo = game.GetAmmoName(ammoType)
+					local amount = UniversalAmmo.GetBullets(ammo) * (self.amountGiven or 1) -- allow ammo stacking
+					if amount == 0 then
+						caller:ChatPrint("Sorry, this weapon cannot use universal ammo!")
+						return
+					end
+
 					if not swep.IsUniversalAmmoInfinite then
 						-- Don't want something to be infinite?
 						local pleaseNo = hook.Run("UniversalAmmo_PreventInfinite", caller, swep, ammoType)
