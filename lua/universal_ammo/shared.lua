@@ -123,6 +123,8 @@ UniversalAmmo.GuessGoodAmmoCount = function()
 		[""] = true,
 		["None"] = true,
 		["none"] = true,
+		["false"] = true,
+		["true"] = true
 	}
 
 	-- Search in-use clip sizes for ammo types

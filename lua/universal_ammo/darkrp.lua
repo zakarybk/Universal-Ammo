@@ -36,7 +36,7 @@ if SERVER then
 
 		-- Edit ammo in buy menu
 		net.Receive("UniversalAmmo_SetDarkRPAmmo", function(len, ply)
-			if UniversalAmmo.CanEditConfig(ply) then
+			if UniversalAmmo.CanEditConfig(ply) and not UniversalAmmo.IsConfigLocked() then
 				local uniAmmos = universalAmmoTypes
 
 				local ammoClass = net.ReadString()
@@ -55,10 +55,11 @@ if SERVER then
 							['enabled'] = enabled
 						}
 					)
+
+					ply:ChatPrint("Updated " .. ammoClass .. " in buy menu with name = "
+						.. printName .. " and price = " .. tostring(price)
+						.. " and is " .. (enabled and "enabled" or "disabled") .. " for buying")
 				end
-				ply:ChatPrint("Updated " .. ammoClass .. " in buy menu with name = "
-					.. printName .. " and price = " .. tostring(price)
-					.. " and is " .. (enabled and "enabled" or "disabled") .. " for buying")
 			end
 		end)
 	end
@@ -143,7 +144,7 @@ if CLIENT or SERVER then
 						updateDarkRPAmmo(className, config.printName, self:GetValue(), config.enabled)
 					end
 					price.OnLoseFocus = function( self )
-						if tostring(self:GetValue()) ~= config['darkrp'][className] then
+						if tostring(self:GetValue()) ~= UniversalAmmo.Config()['darkrp'][className] then
 							local config = UniversalAmmo.Config()['darkrp'][className]
 							updateDarkRPAmmo(className, config.printName, self:GetValue(), config.enabled)
 						end
