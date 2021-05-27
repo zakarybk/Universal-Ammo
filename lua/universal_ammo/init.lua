@@ -11,7 +11,7 @@ local config = {
 	['ammo'] = {},
 	-- ['swep.primary'] = {},
 	-- ['swep.secondary'] = {},
-	-- ['darkrp'] = {} -- TODO: Add entity to F4 menu
+	['darkrp'] = {} -- TODO: Add entity to F4 menu
 }
 UniversalAmmo.Config = function() return config end
 
@@ -50,33 +50,52 @@ end
 
 local function loadConfig()
 	-- Game needs to load all sweps first
-	timer.Simple(2, function()
-		-- set default values for ammo
-		config['ammo'] = UniversalAmmo.GuessGoodAmmoCount()
-		if table.Count(config['ammo']) == 0 then
-			loadConfig() -- try again...
-			return
-		end
 
-		if file.Exists(configFilePath(), 'DATA') then
-			-- Allow default values above to be set
-			-- Means when new ammo is added, we have
-			-- a default value
-			table.Merge(
-				config,
-				forceTableValueToString(
-					util.JSONToTable(
-						file.Read(configFilePath(), 'DATA')
-					)
+	-- set default values for ammo
+	config['ammo'] = UniversalAmmo.GuessGoodAmmoCount()
+	if table.Count(config['ammo']) == 0 then
+		timer.Simple(1, function() loadConfig() end) -- try again...
+		return
+	end
+
+	-- set default values for darkrp -- required -- TODO: move out into darkrp.lua
+	config['darkrp'] = {
+		['universal_ammo'] = {
+			enabled=false,
+			price=70,
+			printName="Universal Ammo"
+		},
+		['universal_ammo_infinite'] = {
+			enabled=false,
+			price=70,
+			printName="Universal Infinite Ammo"
+		},
+		['universal_ammo_secondary'] = {
+			enabled=false,
+			price=70,
+			printName="Universal Secondary Ammo"
+		},
+	}
+
+	if file.Exists(configFilePath(), 'DATA') then
+		-- Allow default values above to be set
+		-- Means when new ammo is added, we have
+		-- a default value
+		table.Merge(
+			config,
+			forceTableValueToString(
+				util.JSONToTable(
+					file.Read(configFilePath(), 'DATA')
 				)
 			)
-		end
+		)
+	end
 
-		hasLoadedConfig = true
-		net.Start("UniversalAmmo_DownloadConfig")
-			net.WriteTable(config)
-		net.Send(player.GetAll())
-	end)
+	hasLoadedConfig = true
+	net.Start("UniversalAmmo_DownloadConfig")
+		net.WriteTable(config)
+	net.Send(player.GetAll())
+
 end
 hook.Add("InitPostEntity", "UniversalAmmo_LoadConfig", loadConfig)
 
@@ -86,6 +105,11 @@ hook.Add("InitPostEntity", "UniversalAmmo_LoadConfig", loadConfig)
 hook.Add("UniversalAmmo_OnConfigChanged", "UpdateClients",
 	function(configName, className, value)
 
+	-- Allow for more complex data such as that in darkrp.lua
+	if istable(value) then
+		value = util.TableToJSON(value)
+	end
+
 	net.Start("UniversalAmmo_OnConfigChanged")
 		net.WriteString(configName)
 		net.WriteString(className)
@@ -94,10 +118,7 @@ hook.Add("UniversalAmmo_OnConfigChanged", "UpdateClients",
 end)
 
 local function updateConfigRow(configName, className, value)
-	config[configName] = table.Merge(
-		config[configName],
-		{[className] = value}
-	)
+	config[configName][className] = value
 	saveConfig()
 	hook.Run('UniversalAmmo_OnConfigChanged',
 		configName,
@@ -105,6 +126,7 @@ local function updateConfigRow(configName, className, value)
 		value
 	)
 end
+UniversalAmmo.UpdateConfigRow = updateConfigRow
 
 local function setBulletCountForAmmo(bulletCount, ammoClass)
 	if UniversalAmmo.IsValidAmmoClass(ammoClass) and isnumber(bulletCount) then

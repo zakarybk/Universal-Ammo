@@ -10,19 +10,23 @@ UniversalAmmo.Config = function() return config end
 local function updateConfig(configName, className, value)
 	local networkMapping = {
 		['ammo'] = "UniversalAmmo_SetAmmoCount",
+		['darkrp'] = "UniversalAmmo_SetDarkRPAmmo"
 		-- ['swep.primary'] = "UniversalAmmo_SetPrimaryAmmoForSWEP",
 		-- ['swep.secondary'] = "UniversalAmmo_SetSecondaryAmmoForSWEP"
 	}
+
+	if istable(value) then
+		value = util.TableToJSON(value)
+	end
+
+	print("Updating config")
+
 	net.Start(networkMapping[configName])
 		net.WriteString(className)
 		net.WriteString(tostring(value))
 	net.SendToServer()
 end
-
-
-UniversalAmmo.Menu.Close = function()
-	UniversalAmmo.Menu.Frame:Remove()
-end
+UniversalAmmo.UpdateServerConfig = updateConfig
 
 UniversalAmmo.Menu.IsOpen = function()
 	return UniversalAmmo.Menu.Frame ~= nil
@@ -34,8 +38,12 @@ end
 
 net.Receive("UniversalAmmo_DownloadConfig", function()
 	timer.Remove("UniversalAmmo_DownloadConfig")
-	config = net.ReadTable()
-	LocalPlayer():ChatPrint("Loaded config")
+	-- Do not load twice - count because key:val pairs
+	if table.Count(config)==0 then
+		config = net.ReadTable()
+		hook.Run("UniversalAmmo_DownloadedConfig", config)
+		LocalPlayer():ChatPrint("Loaded config")
+	end
 end)
 timer.Create("UniversalAmmo_DownloadConfig", 1, 0, function()
 	local ply = LocalPlayer()
@@ -50,18 +58,28 @@ end)
 -- Update data
 --
 
-UniversalAmmo.Menu.UpdateConfig = function(configName, className, value)
+UniversalAmmo.UpdateLocalConfig = function(configName, className, value)
+	-- hack
+	if configName == 'darkrp' then
+		value = util.JSONToTable(value)
+	end
+
 	config[configName] = config[configName] or {}
 	config[configName][className] = value
-	-- Can only update an open menu
-	if UniversalAmmo.Menu.IsOpen() then
-		UniversalAmmo.Menu.Panel[configName].UpdateRow(className, value)
-	end
+
 	hook.Run('UniversalAmmo_OnConfigChanged',
 		configName,
 		className,
 		value
 	)
+end
+
+UniversalAmmo.Menu.UpdateConfig = function(configName, className, value)
+	UniversalAmmo.UpdateLocalConfig(configName, className, value)
+	-- Can only update an open menu
+	if UniversalAmmo.Menu.IsOpen() then
+		UniversalAmmo.Menu.Panel[configName].UpdateRow(className, value)
+	end
 end
 net.Receive("UniversalAmmo_OnConfigChanged", function()
 	UniversalAmmo.Menu.UpdateConfig(

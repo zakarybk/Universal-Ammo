@@ -12,6 +12,14 @@ UniversalAmmo.CanEditConfig = function(ply)
 	return IsValid(ply) and ply:IsSuperAdmin() or game.SinglePlayer()
 end
 
+UniversalAmmo.UniversalAmmoClasses = function()
+	return {
+		["universal_ammo"] = "universal_ammo",
+		["universal_ammo_secondary"] = "universal_ammo_secondary",
+		["universal_ammo_infinite"] = "universal_ammo_infinite"
+	}
+end
+
 UniversalAmmo.GetAmmoClasses = function()
 	return table.Copy(game.GetAmmoTypes())
 end
@@ -175,3 +183,201 @@ UniversalAmmo.GetBullets = function(ammoClass)
 	end
 	return 0 -- 0 = not supported
 end
+
+if CLIENT then
+	UniversalAmmo.EntDraw = function(self)
+	    self:DrawModel()
+
+	    local Pos = self:GetPos()
+	    local Ang = self:GetAngles()
+
+	 	Ang:RotateAroundAxis(Ang:Right(), 270)
+	    Ang:RotateAroundAxis(Ang:Up(), 90)
+
+	    cam.Start3D2D(Pos + Ang:Up() * 5.65, Ang, 0.10)
+	        draw.SimpleText("Universal","HUDNumber5",0,-80,Color(255,255,255),TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
+	        draw.SimpleText("Ammo","HUDNumber5",0,-50,Color(255,255,255),TEXT_ALIGN_CENTER,TEXT_ALIGN_CENTER)
+	    cam.End3D2D()
+	end
+
+	local function makeEntUniversalAmmo(ent)
+		ent.Draw = UniversalAmmo.EntDraw
+	end
+
+	net.Receive("UniversalAmmo_MarkEntAsUniversalAmmo", function(len)
+		local ent = net.ReadEntity()
+
+		if IsValid(ent) then
+			makeEntUniversalAmmo(ent)
+		end
+	end)
+end
+
+if SERVER then
+	--
+	-- Grouping functions here for hacky DarkRP ammo support
+	--
+	--[[
+		universal_ammo
+	]]--
+	UniversalAmmo.Primary = {}
+
+	UniversalAmmo.Primary.Use = function(self, activator, caller)
+		if IsValid(caller) and caller:IsPlayer()
+			and caller.UniversalAmmoCooldown == nil
+			or caller.UniversalAmmoCooldown + UNIVERSAL_AMMO_COOLDOWN < CurTime() then
+
+			caller.UniversalAmmoCooldown = CurTime()
+			local swep = caller:GetActiveWeapon()
+
+			if swep and IsValid(swep) then
+				local ammoType = swep:GetPrimaryAmmoType()
+
+				if ammoType and ammoType ~= -1 then
+					local ammo = game.GetAmmoName(ammoType)
+					local amount = UniversalAmmo.GetBullets(ammo) * (ammo.amountGiven or 1) -- allow ammo stacking
+
+					caller:GiveAmmo(amount, ammo)
+					self:Remove()
+				else
+					caller:ChatPrint("Please equip the weapon you wish to refill!")
+					caller.UniversalAmmoCooldown = CurTime()
+				end
+			end
+		end
+	end
+
+	UniversalAmmo.Primary.Initialize = function(self)
+	    self:SetModel("models/items/boxmrounds.mdl")
+	    self:PhysicsInit(SOLID_VPHYSICS)
+	    self:SetMoveType(MOVETYPE_VPHYSICS)
+	    self:SetSolid(SOLID_VPHYSICS)
+	    local phys = self:GetPhysicsObject()
+	    phys:Wake()
+	end
+
+	--[[
+		universal_ammo_secondary
+	]]--
+	UniversalAmmo.Secondary = {}
+
+	UniversalAmmo.Secondary.Use = function(self, activator, caller)
+		if IsValid(caller) and caller:IsPlayer()
+			and caller.UniversalAmmoCooldown == nil
+			or caller.UniversalAmmoCooldown + UNIVERSAL_AMMO_COOLDOWN < CurTime() then
+
+			caller.UniversalAmmoCooldown = CurTime()
+			local swep = caller:GetActiveWeapon()
+
+			if swep and IsValid(swep) then
+				local ammoType = swep:GetSecondaryAmmoType()
+
+				if ammoType and ammoType ~= -1 then
+					local ammo = game.GetAmmoName(ammoType)
+					local amount = UniversalAmmo.GetBullets(ammo) * (ammo.amountGiven or 1) -- allow ammo stacking
+
+					caller:GiveAmmo(amount, ammo)
+					self:Remove()
+				else
+					caller:ChatPrint("Held weapon doesn't take secondary ammo!")
+					caller.UniversalAmmoCooldown = CurTime()
+				end
+			end
+		end
+	end
+
+	UniversalAmmo.Secondary.Initialize = function(self)
+		UniversalAmmo.Primary.Initialize(self)
+		self:SetColor(Color(255,110,20))
+	end
+
+	--[[
+		universal_ammo_infinite
+	]]--
+	UniversalAmmo.Infinite = {}
+
+	local equipSounds = {
+		"ambient/levels/labs/electric_explosion1.wav",
+		"ambient/levels/labs/electric_explosion2.wav",
+		"ambient/levels/labs/electric_explosion3.wav",
+		"ambient/levels/labs/electric_explosion4.wav",
+		"ambient/levels/labs/electric_explosion5.wav"
+	}
+
+	local function makeSWEPPrimaryAmmoInfinite(ply, swep, ammoType)
+		local ammo = game.GetAmmoName(ammoType)
+
+		-- Fill the clip
+		swep:SetClip1(swep:GetMaxClip1())
+
+		-- Watch weapon to return used ammo
+		swep.IsUniversalAmmoInfinite = true
+
+		local originalTake = swep.TakePrimaryAmmo
+		swep.TakePrimaryAmmo = function(self, amount, ...)
+			swep.UniversalAmmoGiveBack = swep.UniversalAmmoGiveBack and swep.UniversalAmmoGiveBack + amount or 0
+			return originalTake(self, amount, ...)
+		end
+
+		local originalReload = swep.Reload
+
+		swep.Reload = function(...)
+			local usedAmmo = swep.UniversalAmmoGiveBack
+			if usedAmmo then
+				ply:GiveAmmo(usedAmmo, ammo)
+				swep.UniversalAmmoGiveBack = 0
+			end
+			return originalReload(...)
+		end
+	end
+
+	UniversalAmmo.Infinite.Use = function(self, activator, caller)
+		if IsValid(caller) and caller:IsPlayer()
+			and caller.UniversalAmmoCooldown == nil
+			or caller.UniversalAmmoCooldown + UNIVERSAL_AMMO_COOLDOWN < CurTime() then
+
+			caller.UniversalAmmoCooldown = CurTime()
+			local swep = caller:GetActiveWeapon()
+
+			if swep and IsValid(swep) then
+				local ammoType = swep:GetPrimaryAmmoType()
+
+				if ammoType and ammoType ~= -1 then
+					if not swep.IsUniversalAmmoInfinite then
+						-- Don't want something to be infinite?
+						local pleaseNo = hook.Run("UniversalAmmo_PreventInfinite", caller, swep, ammoType)
+
+						if pleaseNo then
+							caller:ChatPrint("Sorry, this weapon cannot use infinite ammo!")
+							return
+						end
+
+						-- Sound and effect
+						self:EmitSound(table.Random(equipSounds), 100, 100, 1, CHAN_AUTO)
+						local effectdata = EffectData()
+						effectdata:SetOrigin(self:GetPos())
+						effectdata:SetScale(0.2)
+						util.Effect("HelicopterMegaBomb", effectdata)
+
+						-- Actual logic
+						makeSWEPPrimaryAmmoInfinite(caller, swep, ammoType)
+						self:Remove()
+					else
+						caller:ChatPrint("Weapon already equiped with infinite ammo!")
+					end
+				else
+					caller:ChatPrint("Held weapon doesn't take primary ammo!")
+					caller.UniversalAmmoCooldown = CurTime()
+				end
+			end
+		end
+	end
+
+	UniversalAmmo.Infinite.Initialize = function(self)
+		UniversalAmmo.Primary.Initialize(self)
+		self:SetColor(Color(255,191,10))
+	    self:SetRenderMode(RENDERMODE_WORLDGLOW)
+		self:SetKeyValue("renderfx", kRenderFxStrobeFaster)
+	end
+end
+
