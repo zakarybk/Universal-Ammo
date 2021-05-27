@@ -69,16 +69,18 @@ local function loadConfig()
 		},
 	}
 
+	-- Make sure file exists and contains a valid table
 	if file.Exists(configFilePath(), 'DATA') then
-		-- Allow default values above to be set
-		-- Means when new ammo is added, we have
-		-- a default value
-		table.Merge(
-			config,
-			util.JSONToTable(
-				file.Read(configFilePath(), 'DATA')
+		local readData = util.JSONToTable(file.Read(configFilePath(), 'DATA'))
+		if readData and istable(readData) then
+			-- Allow default values above to be set
+			-- Means when new ammo is added, we have
+			-- a default value
+			table.Merge(
+				config,
+				readData
 			)
-		)
+		end
 	end
 
 	hasLoadedConfig = true
