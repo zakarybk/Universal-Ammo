@@ -134,7 +134,7 @@ UniversalAmmo.GuessGoodAmmoCount = function()
 
 		if data then
 
-			if data.Primary and not badAmmo[data.Primary.Ammo] and not isbool(data.Primary.Ammo) then
+			if data.Primary and data.Primary.Ammo ~= nil and not badAmmo[data.Primary.Ammo] and not isbool(data.Primary.Ammo) then
 				if data.Primary.ClipSize then
 					ammoClipSizes[data.Primary.Ammo] =
 						ammoClipSizes[data.Primary.Ammo] or {}
@@ -146,7 +146,7 @@ UniversalAmmo.GuessGoodAmmoCount = function()
 				end
 			end
 
-			if data.Secondary and not badAmmo[data.Secondary.Ammo] and not isbool(data.Secondary.Ammo) then
+			if data.Secondary and data.Secondary.Ammo ~= nil and not badAmmo[data.Secondary.Ammo] and not isbool(data.Secondary.Ammo) then
 				if data.Secondary.ClipSize and data.Secondary.ClipSize > 0 then
 					ammoClipSizes[data.Secondary.Ammo] =
 						ammoClipSizes[data.Secondary.Ammo] or {}
