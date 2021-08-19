@@ -161,10 +161,14 @@ UniversalAmmo.GuessGoodAmmoCount = function()
 		end
 	end
 
-	-- Average clip sizes
-
 	local adjustedAmmoAverages = {}
 
+	-- Set default for ammo not found in sweps above
+	for i, ammo in pairs(game.GetAmmoTypes()) do
+		adjustedAmmoAverages[ammo] = 30 -- Magic number for fallback ammo count
+	end
+
+	-- Average clip sizes
 	for ammo, clipCounts in pairs(ammoClipSizes) do
 		adjustedAmmoAverages[ammo] =
 			math.max(1, math.Round(math.Clamp(average(clipCounts) * 2, 1, 80)))
